@@ -65,35 +65,51 @@ str_as_tibble <- function(ls, sep = "\n", colName = "s") {
 # Given string s, search for ... one at a time in order.
 # Search pattern in ... is either regex or use § as a wildcard.
 # Example: str_extract_crunch('ok a=bil_1, b=nånting, c=123_532_korv',
-#          'a=bil_§', 'b=§,', 'c=123_§_korv', .names=c('a', 'b', 'korv'))
-str_extract_crunch <- function(s, ..., names, verbose=FALSE){
+#          'a=bil_§', 'b=§,', 'c=123_§_korv', names=c('a', 'b', 'korv'))
+str_extract_crunch <- function(s, ..., names, verbose=FALSE, wildcard = '§', fix_pattern = TRUE){
   v <- list(...)
   
-  if (verbose)
-    print(paste0("v: ", v))
+  stopifnot(is.character(s))
   
+  if (verbose) {
+    print(paste0("v: ", v))
+    print(paste0("wildcard: ", wildcard))
+  }
+    
   crunch <- function(ls, rest) {
+    sought <- ls[1]
     
-    sought <- ls[1] %>% str_replace('§', '.+')
-    
-    if (verbose){
-      print(paste0("Crunching '", rest, "', finding '", sought, "'"))
+    corrected <- 0
+    if (fix_pattern) {
+      s0 <- str_length(sought)
+      sought <- sought %>% str_replace("\\(", "\\\\(") %>% str_replace("\\)", "\\\\)") %>% str_replace("\\.", "\\\\.")
+      corrected <- (str_length(sought) - s0) / 2
     }
     
-    wildcardPosition <- str_locate(ls[1], '§')[1,1]
-    remainderAfterWildcard <- substring(ls[1], wildcardPosition + 1)
+    if (verbose){
+      print(paste0("Crunching '", rest, "', finding '", sought, "', corrected ", corrected))
+    }
+    
+    wildcardPosition <- str_locate(sought, wildcard)[1,1]
+    remainderAfterWildcard <- substring(sought, wildcardPosition + 1)
+    
+    sought <- sought %>% str_replace(wildcard, '.+')
+    
+    if (verbose){
+      print(paste0("sought is now ", sought))
+    }
     
     if (is.na(remainderAfterWildcard) || str_length(remainderAfterWildcard) == 0) {
       # No additional search strings means remainder should be rest of str.
       # Otherwise, use next search word as remainder:
       if (length(ls) > 1){
-        remainderAfterWildcard <- substring(ls[[2]], 0, str_locate(ls[[2]], '§')[1,1] - 1)
+        remainderAfterWildcard <- substring(ls[[2]], 0, str_locate(ls[[2]], wildcard)[1,1] - 1)
       }
     }
     
     strMatchPos <- str_locate(rest, sought)[1,1]
     strMatch <- substring(rest, strMatchPos) # str_extract(rest, sought)
-    wildCardFoundUntrimmed <- substring(strMatch, wildcardPosition)
+    wildCardFoundUntrimmed <- substring(strMatch, wildcardPosition - corrected)
     wildCardFound <- substring(wildCardFoundUntrimmed, 0, str_locate(wildCardFoundUntrimmed, remainderAfterWildcard)[1,1] - 1)
     
     if ((is.na(wildCardFound) || str_length(wildCardFound) == 0) & length(ls) == 1)
@@ -124,15 +140,15 @@ str_extract_crunch <- function(s, ..., names, verbose=FALSE){
   }
   
   l <- crunch(v, s)
-  names(l) <- names
+  names(l) <- c(names)
   
   if (verbose) {
-    list(names_l = names(l), dotNames = names, l = l)
+    list(l = l)
   } else{
     l
   }
 }
 #str_extract_crunch('ok a=bil_1, b=nånting, c=123_532_korv',
-#                   'a=bil_§', 'b=§,', 'c=123_§_korv', .names=c('a', 'b', 'korv'))
+#                   'a=bil_§', 'b=§,', 'c=123_§_korv', names=c('a', 'b', 'korv'))
 
 
