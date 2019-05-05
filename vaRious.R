@@ -152,3 +152,47 @@ str_extract_crunch <- function(s, ..., names, verbose=FALSE, wildcard = '§', fi
 #                   'a=bil_§', 'b=§,', 'c=123_§_korv', names=c('a', 'b', 'korv'))
 
 
+prep <- function(data) {
+  cols <- names(data)
+  for(c in cols){
+    if (is.character(data[[1, c]]))
+      print("hej")
+  }
+  data
+}
+
+
+stringcols_to_hotencoded <- function(data, verbose = FALSE, colcount_threshold = 20) {
+  data.new <- tibble(.rows = nrow(data))
+  data.m <- tibble(name = names(data),
+                   ischar = data %>% sapply(is.character))
+  
+  # r <- data.m[111,]
+  for (i in 1:nrow(data.m)) {
+    r <- data.m[i, ]
+    
+    if (!is.atomic(r)) {
+      
+      if (r$ischar) {
+        lvls <- levels(factor(data[[r$name]]))
+        # lvl <- lvls[1]
+        if (length(lvls) <= colcount_threshold){
+          for (lvl in lvls)
+          {
+            data.new[[paste(r$name, lvl, sep = "_")]] <- map(data[[r$name]], ~ if_else(. == lvl, 1, 0)) %>% .[[1]]
+          }
+        } else{
+          data.new[[r$name]] <- data[[r$name]]
+        }
+      } else {
+        data.new[[r$name]] <- data[[r$name]]
+      }
+    }
+  }
+  
+  if (verbose){
+    return(list(data.new = data.new, data.m = data.m))
+  }else{
+    return(data.new)
+  }
+}
