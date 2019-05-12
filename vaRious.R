@@ -167,8 +167,13 @@ stringcols_to_hotencoded <- function(data, verbose = FALSE, colcount_threshold =
   data.m <- tibble(name = names(data),
                    ischar = data %>% sapply(is.character))
   
+  rs <- nrow(data.m)
+  # create progress bar
+  pb <- txtProgressBar(min = 1, max = rs, style = 3)
+  #pbr <- txtProgressBar(min = 1, max = 100, style = 3)
+  
   # r <- data.m[111,]
-  for (i in 1:nrow(data.m)) {
+  for (i in 1:rs) {
     r <- data.m[i, ]
     
     if (!is.atomic(r)) {
@@ -177,9 +182,12 @@ stringcols_to_hotencoded <- function(data, verbose = FALSE, colcount_threshold =
         lvls <- levels(factor(data[[r$name]]))
         # lvl <- lvls[1]
         if (length(lvls) <= colcount_threshold){
+          j <- 1
           for (lvl in lvls)
           {
             data.new[[paste(r$name, lvl, sep = "_")]] <- map(data[[r$name]], ~ if_else(. == lvl, 1, 0)) %>% .[[1]]
+            #setTxtProgressBar(pbr, j * length(lvls) / 100)
+            j <- j + 1
           }
         } else{
           data.new[[r$name]] <- data[[r$name]]
@@ -188,7 +196,10 @@ stringcols_to_hotencoded <- function(data, verbose = FALSE, colcount_threshold =
         data.new[[r$name]] <- data[[r$name]]
       }
     }
+    setTxtProgressBar(pb, i)
   }
+  close(pb)
+  #close(pbr)
   
   if (verbose){
     return(list(data.new = data.new, data.m = data.m))
@@ -196,3 +207,72 @@ stringcols_to_hotencoded <- function(data, verbose = FALSE, colcount_threshold =
     return(data.new)
   }
 }
+
+
+stringcols_to_hotencoded_par <- function(data, verbose = FALSE, colcount_threshold = 20) {
+  data.new <- tibble(.rows = nrow(data))
+  data.m <- tibble(name = names(data),
+                   ischar = data %>% sapply(is.character))
+  parallel <- FALSE
+  
+  rs <- nrow(data.m)
+  rs <- 8
+  
+  library(foreach)
+  library(doParallel)
+  library(tidyverse)
+  library(purrr)
+  
+  #setup parallel backend to use many processors https://stackoverflow.com/questions/38318139/run-a-for-loop-in-parallel-in-r
+  if (parallel) {
+    cores <- detectCores()
+    cl <- makeCluster(cores[1]-1) #not to overload your computer
+    registerDoParallel(cl)
+  }
+  
+  # r <- data.m[111,]     rs
+  data.new <- foreach(i=1:rs, .combine=cbind) %do% {
+    r <- data.m[i, ]
+    
+    if (!is.atomic(r)) {
+      
+      if (r$ischar) {
+        lvls <- levels(factor(data[[r$name]]))
+        # lvl <- lvls[1]
+        if (length(lvls) <= colcount_threshold){
+          j <- 1
+          for (lvl in lvls)
+          {
+            xorLevel <- function(x) {
+              if(x == lvl) { 
+                1
+              }
+              else { 
+                0
+              } 
+            }
+            
+            #data.new[[paste(r$name, lvl, sep = "_")]] <- 
+            sapply(data[[r$name]], xorLevel)[[1]]
+            j <- j + 1
+          }
+        } else{
+          #data.new[[r$name]] <- 
+          return(data[[r$name]])
+        }
+      } else {
+        #data.new[[r$name]] <- 
+        return(data[[r$name]])
+      }
+    }
+  }
+  
+  if (parallel) {  
+    stopCluster(cl)
+  }
+  
+  names(data.new) <- names(data)[1:rs]
+  data.new
+}
+if (!is.function(data))
+  stringcols_to_hotencoded_par(data)
