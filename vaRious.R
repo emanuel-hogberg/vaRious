@@ -253,16 +253,18 @@ stringcols_to_hotencoded_par <- function(data, verbose = FALSE, colcount_thresho
             }
             
             #data.new[[paste(r$name, lvl, sep = "_")]] <- 
-            sapply(data[[r$name]], xorLevel)[[1]]
+            sapply(data[[r$name]], xorLevel) %>% as.vector()
             j <- j + 1
           }
-        } else{
+        } else {
           #data.new[[r$name]] <- 
-          return(data[[r$name]])
+          #return(data[[r$name]])
+          sapply(data[[r$name]], function(x) { x }) %>% as.vector()
         }
       } else {
         #data.new[[r$name]] <- 
-        return(data[[r$name]])
+        #return(data[[r$name]])
+        sapply(data[[r$name]], function(x) { x }) %>% as.vector()
       }
     }
   }
@@ -271,8 +273,15 @@ stringcols_to_hotencoded_par <- function(data, verbose = FALSE, colcount_thresho
     stopCluster(cl)
   }
   
-  names(data.new) <- names(data)[1:rs]
+  ns <- 1:rs
+  ns <- 4:5
+  names(data.new) <- names(data)[ns]
+
   data.new
 }
-if (!is.function(data))
+if (FALSE && !is.function(data)) # for debugging
   stringcols_to_hotencoded_par(data)
+
+"%notin%" <- function(e, ls) !(e %in% ls)
+if.na <- function(x, replace) if_else(is.na(x), replace, x)
+count.na <- function(x) sapply(x, function(y) sum(is.na(y)))
